@@ -1,0 +1,129 @@
+# Greene Example 10.3 (Version 7) A Cost Function for U.S. Manufacturing (Berndt and Wood, 1975)
+
+import pandas as pd
+
+import numpy as np
+
+from numpy import asarray as arr
+
+from numpy import transpose as T
+
+from numpy.linalg import inv
+
+import statsmodels.api as sm
+
+d = pd.read_csv('http://www.stern.nyu.edu/~wgreene/Text/Edition7/TableF10-2.csv')
+
+d['PkPm'] = d.Pk/d.Pm
+
+d['PlPm'] = d.Pl/d.Pm
+
+d['PePm'] = d.Pe/d.Pm
+
+
+da = arr(d)
+
+x = da[:,[10,11,12]]
+
+x = np.log(x)
+
+x = sm.add_constant(x)
+
+sk = da[:,2]
+
+sl = da[:,3]
+
+se = da[:,4]
+
+
+
+bk = inv(T(x)@x)@T(x)@sk
+
+
+
+skreg = sm.OLS(sk,x)
+
+results = skreg.fit()
+
+results.params #Get same answer as above
+
+results.tvalues
+
+
+
+bl = inv(T(x)@x)@T(x)@sl
+
+be = inv(T(x)@x)@T(x)@se
+
+
+
+#Implementation of Seemingly Unrelated Regression
+
+d['lnPkPm'] = np.log(d.PkPm)
+
+d['lnPlPm'] = np.log(d.PlPm)
+
+d['lnPePm'] = np.log(d.PePm)
+
+
+H = x@inv(T(x)@x)@T(x)
+
+I = np.eye(len(H))
+
+eK = (I-H)@sk
+
+eL = (I-H)@sl
+
+eE = (I-H)@se
+
+sKK = (T(eK)@eK)/len(d)
+
+sLL = (T(eL)@eL)/len(d)
+
+sEE = (T(eE)@eE)/len(d)
+
+sKL = (T(eK)@eL)/len(d)
+
+sKE = (T(eK)@eE)/len(d)
+
+sLE = (T(eL)@eE)/len(d)
+
+E = arr([[sKK,sKL,sKE], #Sigma matrix
+
+        [sKL,sLL,sLE],
+
+        [sKE,sLE,sEE]])
+
+Q = inv(np.kron(E,np.eye(len(d)))) #Omega matrix
+
+y = np.concatenate((sk,sl,se))
+
+i = np.ones(len(d))
+
+
+
+#Check that this is same as OLS
+
+X = np.stack((i,d.lnPkPm,d.lnPlPm,d.lnPePm),axis=1)
+
+Z = np.kron(np.eye(3),X)
+
+B = inv(T(Z)@Q@Z)@T(Z)@Q@y
+
+print(B)
+
+#FGLS of Berndt and Wood SUR Model via Greene version 7 example 10.3
+
+O = np.zeros(len(d))
+
+Xrow1 = np.stack((i,O,O,d.lnPkPm,d.lnPlPm,d.lnPePm,O,O,O),axis=1)
+
+Xrow2 = np.stack((O,i,O,O,d.lnPkPm,O,d.lnPlPm,d.lnPePm,O),axis=1)
+
+Xrow3 = np.stack((O,O,i,O,O,d.lnPkPm,O,d.lnPlPm,d.lnPePm),axis=1)
+
+X = np.vstack((Xrow1,Xrow2,Xrow3))
+
+bsur = inv(T(X)@Q@X)@T(X)@Q@y
+
+print(bsur)
