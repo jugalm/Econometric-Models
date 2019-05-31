@@ -1,2 +1,2 @@
-# matching_estimators
-To estimate treatment effects
+# Economteric Models
+Implementation of widely used economtric models in Python.
